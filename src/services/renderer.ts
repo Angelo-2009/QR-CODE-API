@@ -1,7 +1,10 @@
-export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any } ) {
+import { renderFinderSvgAt, getFinderModulePositions, FinderConfig } from "./finder";
+
+export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig } ) {
   const moduleSize = opts.moduleSize || 8;
   const margin = typeof opts.marginModules === "number" ? opts.marginModules : 4;
   const modulesConfig = opts.modulesConfig || {};
+  const finderConfig = opts.finderConfig || {};
   const shape = (modulesConfig.shape || "square").toLowerCase();
   const gap = Math.max(0, Math.min(0.5, Number(modulesConfig.gap || 0))); // 0..0.5
   const dotSize = Math.max(0.01, Number(modulesConfig.size || 1));
@@ -28,6 +31,12 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
   const height = (rows + margin * 2) * moduleSize;
 
   const shapes: string[] = [];
+
+  // Determine finder module areas to skip drawing modules inside them
+  const finderModules = getFinderModulePositions(cols, rows);
+  function isInFinderModule(x: number, y: number) {
+    return finderModules.some(f => x >= f.x && x < f.x + f.w && y >= f.y && y < f.y + f.h);
+  }
 
   // Helper to generate polygon points string
   function polygonPoints(points: Array<[number, number]>) {
@@ -58,6 +67,9 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       if (!matrix[y][x]) continue;
+
+      // Skip modules that are part of the finder pattern; they'll be drawn separately
+      if (isInFinderModule(x, y)) continue;
 
       const cx = (x + margin + 0.5) * moduleSize;
       const cy = (y + margin + 0.5) * moduleSize;
@@ -155,6 +167,16 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
     }
   }
 
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <rect width="100%" height="100%" fill="#fff"/>\n  ${shapes.join("\n  ")}\n</svg>`;
+  // After modules, draw finders on top
+  const finderSvgs: string[] = [];
+  for (const f of finderModules) {
+    const fx = f.x;
+    const fy = f.y;
+    const finderCenterX = (fx + margin + 3.5) * moduleSize; // center of 7-module finder
+    const finderCenterY = (fy + margin + 3.5) * moduleSize;
+    finderSvgs.push(renderFinderSvgAt(finderCenterX, finderCenterY, moduleSize, finderConfig));
+  }
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <rect width="100%" height="100%" fill="#fff"/>\n  ${shapes.join("\n  ")}\n  ${finderSvgs.join("\n  ")}\n</svg>`;
   return svg;
 }
