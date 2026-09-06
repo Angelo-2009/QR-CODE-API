@@ -82,6 +82,29 @@ components:
                 seed: { type: number }
         finder:
           type: object
+          properties:
+            shape: { type: string }
+            size: { type: number }
+            corner_radius: { type: number }
+            inner_dot: { type: boolean }
+            color: { type: string }
+            inner_color: { type: string }
+        timing:
+          type: object
+          properties:
+            style: { type: string, enum: [solid, dashed, dotted, gradient] }
+            color: { type: string }
+            thickness: { type: number }
+            gradientStops: { type: array, items: { type: string } }
+        alignment:
+          type: object
+          properties:
+            shape: { type: string }
+            color: { type: string }
+            size: { type: number }
+        quiet_zone:
+          type: integer
+          description: Quiet zone width in modules (default 4, range 0..10)
         logo:
           type: object
         margin:

@@ -1,10 +1,13 @@
 import { renderFinderSvgAt, getFinderModulePositions, FinderConfig } from "./finder";
+import { renderTimingSvg, computeAlignmentCenters, renderAlignmentSvgs, versionFromMatrixSize } from "./timing";
 
-export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig } ) {
+export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig; timingConfig?: any; alignmentConfig?: any; quietZone?: number } ) {
   const moduleSize = opts.moduleSize || 8;
-  const margin = typeof opts.marginModules === "number" ? opts.marginModules : 4;
+  const margin = typeof opts.quietZone === "number" ? opts.quietZone : (typeof opts.marginModules === "number" ? opts.marginModules : 4);
   const modulesConfig = opts.modulesConfig || {};
   const finderConfig = opts.finderConfig || {};
+  const timingConfig = opts.timingConfig || {};
+  const alignmentConfig = opts.alignmentConfig || {};
   const shape = (modulesConfig.shape || "square").toLowerCase();
   const gap = Math.max(0, Math.min(0.5, Number(modulesConfig.gap || 0))); // 0..0.5
   const dotSize = Math.max(0.01, Number(modulesConfig.size || 1));
@@ -64,12 +67,19 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
     return `M ${pts.map(p => p.join(" ")).join(" L ")} Z`;
   }
 
+  // Mark modules as skipped if they overlap with alignment centers (avoid double-rendering)
+  const alignmentCenters = computeAlignmentCenters(versionFromMatrixSize(cols), cols);
+  function isInAlignmentModule(x: number, y: number) {
+    // treat each alignment center as occupying a 3x3 block
+    return alignmentCenters.some(c => x >= c.x - 1 && x <= c.x + 1 && y >= c.y - 1 && y <= c.y + 1);
+  }
+
   for (let y = 0; y < rows; y++) {
     for (let x = 0; x < cols; x++) {
       if (!matrix[y][x]) continue;
 
-      // Skip modules that are part of the finder pattern; they'll be drawn separately
-      if (isInFinderModule(x, y)) continue;
+      // Skip modules that are part of the finder pattern or alignment pattern; they'll be drawn separately
+      if (isInFinderModule(x, y) || isInAlignmentModule(x, y)) continue;
 
       const cx = (x + margin + 0.5) * moduleSize;
       const cy = (y + margin + 0.5) * moduleSize;
@@ -167,7 +177,13 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
     }
   }
 
-  // After modules, draw finders on top
+  // Timing lines (between modules and finders)
+  const timing = renderTimingSvg(cols, rows, moduleSize, margin, timingConfig);
+
+  // Alignment shapes
+  const alignmentSvgs = renderAlignmentSvgs(alignmentCenters, moduleSize, margin, alignmentConfig);
+
+  // After modules and alignment/timing, draw finders on top
   const finderSvgs: string[] = [];
   for (const f of finderModules) {
     const fx = f.x;
@@ -177,6 +193,6 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
     finderSvgs.push(renderFinderSvgAt(finderCenterX, finderCenterY, moduleSize, finderConfig));
   }
 
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <rect width="100%" height="100%" fill="#fff"/>\n  ${shapes.join("\n  ")}\n  ${finderSvgs.join("\n  ")}\n</svg>`;
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <rect width="100%" height="100%" fill="#fff"/>\n  ${shapes.join("\n  ")}\n  ${timing.defs || ""}\n  ${timing.svg}\n  ${alignmentSvgs}\n  ${finderSvgs.join("\n  ")}\n</svg>`;
   return svg;
 }
