@@ -1,13 +1,15 @@
 import { renderFinderSvgAt, getFinderModulePositions, FinderConfig } from "./finder";
 import { renderTimingSvg, computeAlignmentCenters, renderAlignmentSvgs, versionFromMatrixSize } from "./timing";
+import { LogoConfig, parseLogoSource } from "./logo";
 
-export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig; timingConfig?: any; alignmentConfig?: any; quietZone?: number } ) {
+export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig; timingConfig?: any; alignmentConfig?: any; quietZone?: number; logoConfig?: LogoConfig } ) {
   const moduleSize = opts.moduleSize || 8;
   const margin = typeof opts.quietZone === "number" ? opts.quietZone : (typeof opts.marginModules === "number" ? opts.marginModules : 4);
   const modulesConfig = opts.modulesConfig || {};
   const finderConfig = opts.finderConfig || {};
   const timingConfig = opts.timingConfig || {};
   const alignmentConfig = opts.alignmentConfig || {};
+  const logoConfig = opts.logoConfig || null;
   const shape = (modulesConfig.shape || "square").toLowerCase();
   const gap = Math.max(0, Math.min(0.5, Number(modulesConfig.gap || 0))); // 0..0.5
   const dotSize = Math.max(0.01, Number(modulesConfig.size || 1));
@@ -193,6 +195,90 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
     finderSvgs.push(renderFinderSvgAt(finderCenterX, finderCenterY, moduleSize, finderConfig));
   }
 
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <rect width="100%" height="100%" fill="#fff"/>\n  ${shapes.join("\n  ")}\n  ${timing.defs || ""}\n  ${timing.svg}\n  ${alignmentSvgs}\n  ${finderSvgs.join("\n  ")}\n</svg>`;
+  // Compose logo if provided
+  let logoDefs = "";
+  let logoSvg = "";
+  if (logoConfig && logoConfig.source) {
+    const parsed = parseLogoSource(logoConfig.source);
+    if (parsed.ok) {
+      const dataUrl = parsed.dataUrl;
+      // size relative to min(width,height)
+      const minDim = Math.min(width, height);
+      const logoSizeFraction = typeof logoConfig.size === "number" ? Math.max(0.01, Math.min(0.8, logoConfig.size)) : 0.22;
+      const logoSizePx = minDim * logoSizeFraction;
+      const paddingFraction = typeof logoConfig.padding === "number" ? Math.max(0, Math.min(0.5, logoConfig.padding)) : 0.05;
+      const paddingPx = logoSizePx * paddingFraction;
+      const imageInnerSize = Math.max(1, logoSizePx - paddingPx * 2);
+      const cx = width / 2;
+      const cy = height / 2;
+      const x = cx - imageInnerSize / 2;
+      const y = cy - imageInnerSize / 2;
+      const opacity = typeof logoConfig.opacity === "number" ? Math.max(0, Math.min(1, logoConfig.opacity)) : 1;
+      const bg = logoConfig.background || null;
+      const shapeType = (logoConfig.shape || "circle").toLowerCase();
+      const clipId = `logoClip-${Math.abs(Math.floor(cx+cy))}`;
+
+      // background (padding ring)
+      if (bg && bg.color) {
+        const bgOpacity = typeof bg.opacity === "number" ? Math.max(0, Math.min(1, bg.opacity)) : 1;
+        switch (shapeType) {
+          case "circle":
+            logoSvg += `<circle cx="${cx}" cy="${cy}" r="${logoSizePx/2}" fill="${bg.color}" fill-opacity="${bgOpacity}" />`;
+            break;
+          case "hexagon": {
+            const half = logoSizePx / 2;
+            const pts = (() => {
+              const ptsArr: Array<[number,number]> = [];
+              for (let i = 0; i < 6; i++) {
+                const angle = Math.PI/6 + (i/6)*Math.PI*2;
+                ptsArr.push([cx + Math.cos(angle)*half, cy + Math.sin(angle)*half]);
+              }
+              return ptsArr.map(p=>p.join(',')).join(' ');
+            })();
+            logoSvg += `<polygon points="${pts}" fill="${bg.color}" fill-opacity="${bgOpacity}"/>`;
+            break;
+          }
+          default:
+            // square/rounded
+            const rx = shapeType === "rounded" ? Math.max(1, Math.min(logoSizePx*0.45, logoSizePx*0.25)) : 0;
+            logoSvg += `<rect x="${cx - logoSizePx/2}" y="${cy - logoSizePx/2}" width="${logoSizePx}" height="${logoSizePx}" rx="${rx}" fill="${bg.color}" fill-opacity="${bgOpacity}"/>`;
+        }
+      }
+
+      // Clip path for image
+      switch (shapeType) {
+        case "circle":
+          logoDefs += `<clipPath id="${clipId}"><circle cx="${cx}" cy="${cy}" r="${imageInnerSize/2}"/></clipPath>`;
+          break;
+        case "hexagon": {
+          const half = imageInnerSize / 2;
+          const pts = (() => {
+            const ptsArr: Array<[number,number]> = [];
+            for (let i = 0; i < 6; i++) {
+              const angle = Math.PI/6 + (i/6)*Math.PI*2;
+              ptsArr.push([cx + Math.cos(angle)*half, cy + Math.sin(angle)*half]);
+            }
+            return ptsArr.map(p=>p.join(',')).join(' ');
+          })();
+          logoDefs += `<clipPath id="${clipId}"><polygon points="${pts}"/></clipPath>`;
+          break;
+        }
+        case "rounded":
+          const rx2 = Math.max(1, Math.min(imageInnerSize*0.5, imageInnerSize*0.2));
+          logoDefs += `<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${imageInnerSize}" height="${imageInnerSize}" rx="${rx2}"/></clipPath>`;
+          break;
+        default:
+          logoDefs += `<clipPath id="${clipId}"><rect x="${x}" y="${y}" width="${imageInnerSize}" height="${imageInnerSize}"/></clipPath>`;
+      }
+
+      // Image element
+      logoSvg += `<image href="${dataUrl}" x="${x}" y="${y}" width="${imageInnerSize}" height="${imageInnerSize}" clip-path="url(#${clipId})" opacity="${opacity}" preserveAspectRatio="xMidYMid meet"/>`;
+    } else {
+      // unable to parse logo source - include an XML comment
+      logoSvg += `<!-- logo parse error: ${parsed.error} -->`;
+    }
+  }
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <rect width="100%" height="100%" fill="#fff"/>\n  ${shapes.join("\n  ")}\n  ${timing.defs || ""}\n  ${timing.svg}\n  ${alignmentSvgs}\n  ${finderSvgs.join("\n  ")}\n  <defs>\n    ${logoDefs}\n  </defs>\n  ${logoSvg}\n</svg>`;
   return svg;
 }
