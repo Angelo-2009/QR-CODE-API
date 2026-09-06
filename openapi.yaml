@@ -53,8 +53,33 @@ components:
         error_correction:
           type: string
           enum: [L, M, Q, H]
+        version:
+          type: string
+        encoding:
+          type: string
         modules:
           type: object
+          properties:
+            shape:
+              type: string
+              description: Module shape (square, rounded, circle, diamond, hexagon, triangle, star, hbar, vbar, squircle)
+            size:
+              type: number
+              description: Module size multiplier (scale)
+            gap:
+              type: number
+              description: Gap between modules (0..0.5)
+            corner_radius:
+              type: number
+            color:
+              type: string
+            randomize:
+              type: object
+              properties:
+                enabled: { type: boolean }
+                min: { type: number }
+                max: { type: number }
+                seed: { type: number }
         finder:
           type: object
         logo:

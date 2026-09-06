@@ -12,8 +12,12 @@ export async function generateMatrixHandler(req: Request, res: Response) {
 
     const matrixResult = await encodeToMatrix(config.data, config);
 
-    // For initial core-encoding step return the module matrix and a simple SVG preview
-    const svg = renderSvgFromMatrix(matrixResult.matrix, { moduleSize: config.size || 8, marginModules: config.margin || 4 });
+    // Render SVG preview using modules config if provided
+    const svg = renderSvgFromMatrix(matrixResult.matrix, {
+      moduleSize: config.size || 8,
+      marginModules: config.margin || 4,
+      modulesConfig: config.modules || {}
+    });
 
     res.json({
       content_type: "image/svg+xml",
