@@ -1,0 +1,89 @@
+openapi: 3.0.3
+info:
+  title: QR-CODE-API
+  version: 0.1.0
+servers:
+  - url: http://localhost:3000
+paths:
+  /api/v1/qrcode/generate:
+    post:
+      summary: Generate a QR code from a JSON configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QRCodeRequest'
+      responses:
+        '200':
+          description: Synchronous generation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QRCodeResponse'
+  /api/v1/qrcode/presets:
+    get:
+      summary: List built-in design presets
+      responses:
+        '200':
+          description: presets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/DesignPreset'
+components:
+  schemas:
+    QRCodeRequest:
+      type: object
+      required: [data, format]
+      properties:
+        data:
+          type: string
+        type:
+          type: string
+          enum: [url, text, vcard, wifi, tel, sms, email, geo, event, payment]
+        format:
+          type: string
+          enum: [svg, png, webp, pdf, avif]
+        size:
+          type: integer
+          minimum: 64
+        error_correction:
+          type: string
+          enum: [L, M, Q, H]
+        modules:
+          type: object
+        finder:
+          type: object
+        logo:
+          type: object
+        margin:
+          type: integer
+        strict_mode:
+          type: boolean
+    QRCodeResponse:
+      type: object
+      properties:
+        id:
+          type: string
+        content_type:
+          type: string
+        data_base64:
+          type: string
+        file_url:
+          type: string
+        scannability_score:
+          type: number
+        warnings:
+          type: array
+          items:
+            type: string
+    DesignPreset:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        description: { type: string }
+        config: { type: object }
