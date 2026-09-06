@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: QR-CODE-API
-  version: 0.1.0
+  version: 0.2.0
 servers:
   - url: http://localhost:3000
 paths:
@@ -105,6 +105,22 @@ components:
         borderWidth: { type: number }
         borderRadius: { type: number }
         height: { type: number }
+    OutputConfig:
+      type: object
+      properties:
+        format:
+          type: string
+          enum: [svg, png, jpg, webp, avif, pdf]
+        size_px: { type: integer }
+        dpi: { type: integer }
+        size_mm:
+          type: object
+          properties:
+            width: { type: number }
+            height: { type: number }
+        quality: { type: integer }
+        async: { type: boolean }
+        preserveVector: { type: boolean }
     QRCodeRequest:
       type: object
       required: [data, format]
@@ -184,6 +200,8 @@ components:
           $ref: '#/components/schemas/BackgroundConfig'
         frame:
           $ref: '#/components/schemas/FrameConfig'
+        output:
+          $ref: '#/components/schemas/OutputConfig'
         quiet_zone:
           type: integer
           description: Quiet zone width in modules (default 4, range 0..10)
