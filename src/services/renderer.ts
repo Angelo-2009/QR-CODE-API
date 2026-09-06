@@ -3,8 +3,9 @@ import { renderTimingSvg, computeAlignmentCenters, renderAlignmentSvgs, versionF
 import { LogoConfig, parseLogoSource } from "./logo";
 import { generateColorDefs, ColorConfig } from "./colors";
 import { renderBackgroundSvg, BackgroundConfig } from "./background";
+import { renderFrameSvg, FrameConfig } from "./frame";
 
-export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig; timingConfig?: any; alignmentConfig?: any; quietZone?: number; logoConfig?: LogoConfig; colors?: { modules?: ColorConfig; finder?: ColorConfig; timing?: ColorConfig; alignment?: ColorConfig; background?: ColorConfig }, background?: BackgroundConfig } ) {
+export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig; timingConfig?: any; alignmentConfig?: any; quietZone?: number; logoConfig?: LogoConfig; colors?: { modules?: ColorConfig; finder?: ColorConfig; timing?: ColorConfig; alignment?: ColorConfig; background?: ColorConfig }; background?: BackgroundConfig; frameConfig?: FrameConfig } ) {
   const moduleSize = opts.moduleSize || 8;
   const margin = typeof opts.quietZone === "number" ? opts.quietZone : (typeof opts.marginModules === "number" ? opts.marginModules : 4);
   const modulesConfig = opts.modulesConfig || {};
@@ -14,6 +15,7 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
   const logoConfig = opts.logoConfig || null;
   const colorCfgs = opts.colors || {};
   const backgroundCfg = opts.background || null;
+  const frameCfg = opts.frameConfig || null;
 
   const modulesColorCfg = colorCfgs.modules || { type: "solid", color: "#000" };
   const finderColorCfg = colorCfgs.finder || { type: "solid", color: "#000" };
@@ -205,7 +207,7 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
   // Background via background helper
   const bg = renderBackgroundSvg(width, height, backgroundCfg || undefined);
 
-  // Timing lines (between modules and finders) - but use timingFill color by overriding stroke in renderTimingSvg
+  // Timing lines (between modules and finders)
   const timing = renderTimingSvg(cols, rows, moduleSize, margin, timingConfig);
 
   // Alignment shapes
@@ -222,7 +224,7 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
     finderSvgs.push(renderFinderSvgAt(finderCenterX, finderCenterY, moduleSize, finderConfig));
   }
 
-  // Compose logo if provided (same as before)
+  // Compose logo if provided
   let logoDefs = "";
   let logoSvg = "";
   if (logoConfig && logoConfig.source) {
@@ -306,9 +308,12 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
     }
   }
 
-  // Collect all defs
-  const allDefs = [moduleDefs.defs, finderDefs.defs, timingDefs.defs, alignmentDefs.defs, backgroundColorDefs.defs, bg.defs, logoDefs].filter(Boolean).join("\n");
+  // Frame
+  const frame = renderFrameSvg(width, height, frameCfg || undefined, moduleSize, margin);
 
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <defs>\n    ${allDefs}\n  </defs>\n  ${bg.svg}\n  ${shapes.join("\n  ")}\n  ${timing.svg}\n  ${alignmentSvgs}\n  ${finderSvgs.join("\n  ")}\n  ${logoSvg}\n</svg>`;
+  // Collect all defs
+  const allDefs = [moduleDefs.defs, finderDefs.defs, timingDefs.defs, alignmentDefs.defs, backgroundColorDefs.defs, bg.defs, logoDefs, frame.defs].filter(Boolean).join("\n");
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <defs>\n    ${allDefs}\n  </defs>\n  ${bg.svg}\n  ${shapes.join("\n  ")}\n  ${timing.svg}\n  ${alignmentSvgs}\n  ${finderSvgs.join("\n  ")}\n  ${logoSvg}\n  ${frame.svg}\n</svg>`;
   return svg;
 }
