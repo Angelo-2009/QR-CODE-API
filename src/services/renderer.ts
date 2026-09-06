@@ -2,8 +2,9 @@ import { renderFinderSvgAt, getFinderModulePositions, FinderConfig } from "./fin
 import { renderTimingSvg, computeAlignmentCenters, renderAlignmentSvgs, versionFromMatrixSize } from "./timing";
 import { LogoConfig, parseLogoSource } from "./logo";
 import { generateColorDefs, ColorConfig } from "./colors";
+import { renderBackgroundSvg, BackgroundConfig } from "./background";
 
-export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig; timingConfig?: any; alignmentConfig?: any; quietZone?: number; logoConfig?: LogoConfig; colors?: { modules?: ColorConfig; finder?: ColorConfig; timing?: ColorConfig; alignment?: ColorConfig; background?: ColorConfig } } ) {
+export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig; timingConfig?: any; alignmentConfig?: any; quietZone?: number; logoConfig?: LogoConfig; colors?: { modules?: ColorConfig; finder?: ColorConfig; timing?: ColorConfig; alignment?: ColorConfig; background?: ColorConfig }, background?: BackgroundConfig } ) {
   const moduleSize = opts.moduleSize || 8;
   const margin = typeof opts.quietZone === "number" ? opts.quietZone : (typeof opts.marginModules === "number" ? opts.marginModules : 4);
   const modulesConfig = opts.modulesConfig || {};
@@ -12,6 +13,7 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
   const alignmentConfig = opts.alignmentConfig || {};
   const logoConfig = opts.logoConfig || null;
   const colorCfgs = opts.colors || {};
+  const backgroundCfg = opts.background || null;
 
   const modulesColorCfg = colorCfgs.modules || { type: "solid", color: "#000" };
   const finderColorCfg = colorCfgs.finder || { type: "solid", color: "#000" };
@@ -24,13 +26,13 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
   const finderDefs = generateColorDefs("finder", finderColorCfg as any);
   const timingDefs = generateColorDefs("timing", timingColorCfg as any);
   const alignmentDefs = generateColorDefs("alignment", alignmentColorCfg as any);
-  const backgroundDefs = generateColorDefs("background", backgroundColorCfg as any);
+  const backgroundColorDefs = generateColorDefs("background", backgroundColorCfg as any);
 
   const modulesFill = moduleDefs.fill;
   const finderFill = finderDefs.fill;
   const timingFill = timingDefs.fill;
   const alignmentFill = alignmentDefs.fill;
-  const backgroundFill = backgroundDefs.fill;
+  const backgroundFill = backgroundColorDefs.fill;
 
   const shape = (modulesConfig.shape || "square").toLowerCase();
   const gap = Math.max(0, Math.min(0.5, Number(modulesConfig.gap || 0))); // 0..0.5
@@ -200,19 +202,11 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
     }
   }
 
-  // Background
-  const bgRect = `<rect x="0" y="0" width="${width}" height="${height}" fill="${backgroundFill}"/>`;
+  // Background via background helper
+  const bg = renderBackgroundSvg(width, height, backgroundCfg || undefined);
 
   // Timing lines (between modules and finders) - but use timingFill color by overriding stroke in renderTimingSvg
   const timing = renderTimingSvg(cols, rows, moduleSize, margin, timingConfig);
-  // If timingDefs produced a fill, replace stroke color references in timing.svg accordingly
-  let timingDefsExtra = timing.defs || "";
-  let timingSvg = timing.svg || "";
-  if (timingFill && timingFill.startsWith("url(#")) {
-    // ensure the timing defs are included in defs collection
-    timingDefsExtra = timingDefsExtra; // already set
-    // Replace stroke attributes is not straightforward; we keep stroke from timing.svg but allow user to control color via timingConfig.color as before.
-  }
 
   // Alignment shapes
   const alignmentSvgs = renderAlignmentSvgs(alignmentCenters, moduleSize, margin, alignmentConfig);
@@ -313,8 +307,8 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
   }
 
   // Collect all defs
-  const allDefs = [moduleDefs.defs, finderDefs.defs, timingDefs.defs, alignmentDefs.defs, backgroundDefs.defs, logoDefs].filter(Boolean).join("\n");
+  const allDefs = [moduleDefs.defs, finderDefs.defs, timingDefs.defs, alignmentDefs.defs, backgroundColorDefs.defs, bg.defs, logoDefs].filter(Boolean).join("\n");
 
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  ${bgRect}\n  <defs>\n    ${allDefs}\n  </defs>\n  ${shapes.join("\n  ")}\n  ${timing.svg}\n  ${alignmentSvgs}\n  ${finderSvgs.join("\n  ")}\n  ${logoSvg}\n</svg>`;
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <defs>\n    ${allDefs}\n  </defs>\n  ${bg.svg}\n  ${shapes.join("\n  ")}\n  ${timing.svg}\n  ${alignmentSvgs}\n  ${finderSvgs.join("\n  ")}\n  ${logoSvg}\n</svg>`;
   return svg;
 }

@@ -63,6 +63,32 @@ components:
                 properties:
                   color: { type: string }
                   offset: { type: number }
+    BackgroundConfig:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [solid, image, transparent]
+        color:
+          type: string
+        image:
+          type: string
+          description: data URL or preset:<name> (no remote URLs in starter)
+        size:
+          type: string
+          enum: [cover, contain, stretch]
+        position:
+          type: string
+          enum: [center, top, bottom, left, right]
+        blur:
+          type: number
+        brightness:
+          type: number
+        overlay:
+          type: object
+          properties:
+            color: { type: string }
+            opacity: { type: number }
     QRCodeRequest:
       type: object
       required: [data, format]
@@ -138,6 +164,8 @@ components:
             timing: { $ref: '#/components/schemas/ColorConfig' }
             alignment: { $ref: '#/components/schemas/ColorConfig' }
             background: { $ref: '#/components/schemas/ColorConfig' }
+        background:
+          $ref: '#/components/schemas/BackgroundConfig'
         quiet_zone:
           type: integer
           description: Quiet zone width in modules (default 4, range 0..10)
