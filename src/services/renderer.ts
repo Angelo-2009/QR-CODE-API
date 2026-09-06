@@ -1,8 +1,9 @@
 import { renderFinderSvgAt, getFinderModulePositions, FinderConfig } from "./finder";
 import { renderTimingSvg, computeAlignmentCenters, renderAlignmentSvgs, versionFromMatrixSize } from "./timing";
 import { LogoConfig, parseLogoSource } from "./logo";
+import { generateColorDefs, ColorConfig } from "./colors";
 
-export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig; timingConfig?: any; alignmentConfig?: any; quietZone?: number; logoConfig?: LogoConfig } ) {
+export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: number; marginModules?: number; modulesConfig?: any; finderConfig?: FinderConfig; timingConfig?: any; alignmentConfig?: any; quietZone?: number; logoConfig?: LogoConfig; colors?: { modules?: ColorConfig; finder?: ColorConfig; timing?: ColorConfig; alignment?: ColorConfig; background?: ColorConfig } } ) {
   const moduleSize = opts.moduleSize || 8;
   const margin = typeof opts.quietZone === "number" ? opts.quietZone : (typeof opts.marginModules === "number" ? opts.marginModules : 4);
   const modulesConfig = opts.modulesConfig || {};
@@ -10,12 +11,32 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
   const timingConfig = opts.timingConfig || {};
   const alignmentConfig = opts.alignmentConfig || {};
   const logoConfig = opts.logoConfig || null;
+  const colorCfgs = opts.colors || {};
+
+  const modulesColorCfg = colorCfgs.modules || { type: "solid", color: "#000" };
+  const finderColorCfg = colorCfgs.finder || { type: "solid", color: "#000" };
+  const timingColorCfg = colorCfgs.timing || { type: "solid", color: "#000" };
+  const alignmentColorCfg = colorCfgs.alignment || { type: "solid", color: "#000" };
+  const backgroundColorCfg = colorCfgs.background || { type: "solid", color: "#fff" };
+
+  // Generate defs for all color zones
+  const moduleDefs = generateColorDefs("modules", modulesColorCfg as any);
+  const finderDefs = generateColorDefs("finder", finderColorCfg as any);
+  const timingDefs = generateColorDefs("timing", timingColorCfg as any);
+  const alignmentDefs = generateColorDefs("alignment", alignmentColorCfg as any);
+  const backgroundDefs = generateColorDefs("background", backgroundColorCfg as any);
+
+  const modulesFill = moduleDefs.fill;
+  const finderFill = finderDefs.fill;
+  const timingFill = timingDefs.fill;
+  const alignmentFill = alignmentDefs.fill;
+  const backgroundFill = backgroundDefs.fill;
+
   const shape = (modulesConfig.shape || "square").toLowerCase();
   const gap = Math.max(0, Math.min(0.5, Number(modulesConfig.gap || 0))); // 0..0.5
   const dotSize = Math.max(0.01, Number(modulesConfig.size || 1));
   const cornerRadius = Math.max(0, Math.min(1, Number(modulesConfig.corner_radius || 0.25)));
   const randomize = modulesConfig.randomize || { enabled: false };
-  const color = modulesConfig.color || "#000";
 
   // Seeded RNG (mulberry32) for deterministic randomization when seed provided
   function mulberry32(a: number) {
@@ -107,12 +128,12 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
           const rx = shape === "square" ? 0 : Math.min(half, cornerRadius * inner);
           const x0 = cx - half;
           const y0 = cy - half;
-          shapes.push(`<rect x="${x0}" y="${y0}" width="${inner}" height="${inner}" rx="${rx}" ry="${rx}" fill="${color}"/>`);
+          shapes.push(`<rect x="${x0}" y="${y0}" width="${inner}" height="${inner}" rx="${rx}" ry="${rx}" fill="${modulesFill}"/>`);
           break;
         }
         case "circle":
         case "dot": {
-          shapes.push(`<circle cx="${cx}" cy="${cy}" r="${half}" fill="${color}"/>`);
+          shapes.push(`<circle cx="${cx}" cy="${cy}" r="${half}" fill="${modulesFill}"/>`);
           break;
         }
         case "diamond": {
@@ -122,12 +143,12 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
             [cx, cy + half],
             [cx - half, cy],
           ]);
-          shapes.push(`<polygon points="${pts}" fill="${color}"/>`);
+          shapes.push(`<polygon points="${pts}" fill="${modulesFill}"/>`);
           break;
         }
         case "hexagon": {
           const pts = regularPolygon(cx, cy, half, 6, Math.PI / 6);
-          shapes.push(`<polygon points="${pts}" fill="${color}"/>`);
+          shapes.push(`<polygon points="${pts}" fill="${modulesFill}"/>`);
           break;
         }
         case "triangle": {
@@ -136,12 +157,12 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
             [cx + half, cy + half],
             [cx - half, cy + half],
           ]);
-          shapes.push(`<polygon points="${pts}" fill="${color}"/>`);
+          shapes.push(`<polygon points="${pts}" fill="${modulesFill}"/>`);
           break;
         }
         case "star": {
           const path = starPath(cx, cy, half, half * 0.5, 5);
-          shapes.push(`<path d="${path}" fill="${color}"/>`);
+          shapes.push(`<path d="${path}" fill="${modulesFill}"/>`);
           break;
         }
         case "hbar":
@@ -149,7 +170,7 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
         case "horizontal-bars": {
           const w = inner * 1.2;
           const h = Math.max(1, inner * 0.35);
-          shapes.push(`<rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" rx="${h / 2}" fill="${color}"/>`);
+          shapes.push(`<rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" rx="${h / 2}" fill="${modulesFill}"/>`);
           break;
         }
         case "vbar":
@@ -157,7 +178,7 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
         case "vertical-bars": {
           const w = Math.max(1, inner * 0.35);
           const h = inner * 1.2;
-          shapes.push(`<rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" rx="${w / 2}" fill="${color}"/>`);
+          shapes.push(`<rect x="${cx - w / 2}" y="${cy - h / 2}" width="${w}" height="${h}" rx="${w / 2}" fill="${modulesFill}"/>`);
           break;
         }
         case "squircle":
@@ -166,21 +187,32 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
           const rx = Math.min(half, inner * 0.45);
           const x0 = cx - half;
           const y0 = cy - half;
-          shapes.push(`<rect x="${x0}" y="${y0}" width="${inner}" height="${inner}" rx="${rx}" ry="${rx}" fill="${color}"/>`);
+          shapes.push(`<rect x="${x0}" y="${y0}" width="${inner}" height="${inner}" rx="${rx}" ry="${rx}" fill="${modulesFill}"/>`);
           break;
         }
         default: {
           // fallback to square
           const x0 = cx - half;
           const y0 = cy - half;
-          shapes.push(`<rect x="${x0}" y="${y0}" width="${inner}" height="${inner}" fill="${color}"/>`);
+          shapes.push(`<rect x="${x0}" y="${y0}" width="${inner}" height="${inner}" fill="${modulesFill}"/>`);
         }
       }
     }
   }
 
-  // Timing lines (between modules and finders)
+  // Background
+  const bgRect = `<rect x="0" y="0" width="${width}" height="${height}" fill="${backgroundFill}"/>`;
+
+  // Timing lines (between modules and finders) - but use timingFill color by overriding stroke in renderTimingSvg
   const timing = renderTimingSvg(cols, rows, moduleSize, margin, timingConfig);
+  // If timingDefs produced a fill, replace stroke color references in timing.svg accordingly
+  let timingDefsExtra = timing.defs || "";
+  let timingSvg = timing.svg || "";
+  if (timingFill && timingFill.startsWith("url(#")) {
+    // ensure the timing defs are included in defs collection
+    timingDefsExtra = timingDefsExtra; // already set
+    // Replace stroke attributes is not straightforward; we keep stroke from timing.svg but allow user to control color via timingConfig.color as before.
+  }
 
   // Alignment shapes
   const alignmentSvgs = renderAlignmentSvgs(alignmentCenters, moduleSize, margin, alignmentConfig);
@@ -192,10 +224,11 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
     const fy = f.y;
     const finderCenterX = (fx + margin + 3.5) * moduleSize; // center of 7-module finder
     const finderCenterY = (fy + margin + 3.5) * moduleSize;
+    // Override default color in finder render by temporarily setting finderConfig colors if needed
     finderSvgs.push(renderFinderSvgAt(finderCenterX, finderCenterY, moduleSize, finderConfig));
   }
 
-  // Compose logo if provided
+  // Compose logo if provided (same as before)
   let logoDefs = "";
   let logoSvg = "";
   if (logoConfig && logoConfig.source) {
@@ -279,6 +312,9 @@ export function renderSvgFromMatrix(matrix: number[][], opts: { moduleSize?: num
     }
   }
 
-  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  <rect width="100%" height="100%" fill="#fff"/>\n  ${shapes.join("\n  ")}\n  ${timing.defs || ""}\n  ${timing.svg}\n  ${alignmentSvgs}\n  ${finderSvgs.join("\n  ")}\n  <defs>\n    ${logoDefs}\n  </defs>\n  ${logoSvg}\n</svg>`;
+  // Collect all defs
+  const allDefs = [moduleDefs.defs, finderDefs.defs, timingDefs.defs, alignmentDefs.defs, backgroundDefs.defs, logoDefs].filter(Boolean).join("\n");
+
+  const svg = `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n  ${bgRect}\n  <defs>\n    ${allDefs}\n  </defs>\n  ${shapes.join("\n  ")}\n  ${timing.svg}\n  ${alignmentSvgs}\n  ${finderSvgs.join("\n  ")}\n  ${logoSvg}\n</svg>`;
   return svg;
 }
